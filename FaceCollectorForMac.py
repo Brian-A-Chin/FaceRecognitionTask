@@ -73,7 +73,6 @@ def get_image(file_name_only):
     for subdir, dirs, files in os.walk(root):
         if dirs:
             for directory in dirs:
-                print(subdir)
                 for file in files:
                     print(file)
                     # if we've found our file.
@@ -113,11 +112,11 @@ def recognize_known_faces(name):
     # get all of the image file names of current participant.
     for subdir0, dirs0, files0 in os.walk(root):
         for file0 in files0:
+            print(file0)
             # Append the current image to the list of images.
             current_participant = get_image(file0)
-    print("current participant image: " + str(current_participant))
-    known_encoding = face_recognition.face_encodings(current_participant)
 
+    known_encoding = face_recognition.face_encodings(current_participant)
     # Now get all of the image file names of previous participants.
     # go back one directory.
     os.chdir('..')
