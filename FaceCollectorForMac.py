@@ -12,32 +12,8 @@ import os
 import sys
 import face_recognition
 
-# Define our faceCascade.
-faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-# Number of frames we're collecting
-numberFrames = 30
-# Tell the computer which camera to use.
-camera = cv2.VideoCapture(0)
-camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-camera.set(cv2.CAP_PROP_XI_FRAMERATE, 30)
-number_of_frames = camera.get(numberFrames)
 
-# This is the number of frames that we will be taking, as a list.
-frames_OI = list(range(0, numberFrames + 1))
-
-# Collect subjects name and update directory with a new file, or check if file already exists.
-name = input("What's his/her Name? ")
-pathDir = "./images/" + name
-if not os.path.exists(pathDir):
-    os.makedirs(pathDir)
-    print("Directory Created")
-else:
-    print("Name already exists")
-    sys.exit()
-
-
-def collect_face_images():
+def collect_face_images(faceCascade, frames_OI, camera, name, pathDir):
     """This function will collect 30 images of a person's face. The function will also
     crop the image to be a box that includes only the face."""
 
@@ -65,6 +41,7 @@ def collect_face_images():
 
         # Draw a rectangle around the faces
         # print(faces)
+
         for (x, y, w, h) in faces:
             cv2.rectangle(gray, (x, y), (x + w, y + h), (0, 255, 0), 2)
             # Reposition, for some reason the x,y coordinates weren't correct.
@@ -74,13 +51,10 @@ def collect_face_images():
             y1 = y0 + h
             # Crop the image, taking only the face.
             cropped = gray[x0:x1, y0:y1]
-            fileName = pathDir + "/" + name + str(i) + "_(" + str(x0) + "," + str(y0) + ").jpg"
+            file_name = (pathDir + "/" + name + str(i) + "_(" + str(x0) + "," + str(y0) + ").jpg")
             # Save the face-only image.
-            cv2.imwrite(fileName, cropped)
-
-    # uncomment these two lines when you want the image to be displayed to the user.
-    # cv2.imshow("Faces found", cropped)
-    # cv2.waitKey(0)  # Waits until a key is pressed.
+            saved = cv2.imwrite(file_name, cropped)
+            print("Did the image save? " + str(saved))  # DEBUG
 
     # Print to the user how many images were generated.
     print(str(numberOfImagesCreated) + " photos were generated.")
@@ -90,29 +64,78 @@ def collect_face_images():
     cv2.destroyAllWindows()
 
 
-def recognize_known_faces():
+def get_image(file_name_only):
+    """Given a file, this function will search, starting from the root directory to find the given file.
+    This function will return the full file-path to that file."""
+
+    root = "."
+    participant_image = ""
+    for subdir, dirs, files in os.walk(root):
+        if dirs:
+            for directory in dirs:
+                print(subdir)
+                for file in files:
+                    print(file)
+                    # if we've found our file.
+                    if file == file_name_only:
+                        cur_dir = os.getcwd() + "/" + directory
+                        os.chdir(cur_dir)
+                        # get the whole path.
+                        print(os.curdir)
+                        # load the image.
+                        print("Filename:" + file)
+                        participant_image = face_recognition.load_image_file(file)
+        else:
+            for file in files:
+                print(file)
+                # if we've found our file.
+                if file == file_name_only:
+                    cur_dir = os.getcwd()
+                    os.chdir(cur_dir)
+                    # get the whole path.
+                    print(os.curdir)
+                    # load the image.
+                    print("Filename:" + file)
+                    participant_image = face_recognition.load_image_file(file)
+
+    # return the image.
+    return participant_image
+
+
+def recognize_known_faces(name):
     """From the faces that we've collected so far, this function will determine whether or not it has seen this
     person's face before."""
 
-    all_images_directory = "./images/"
     current_participant_images = "./images/" + name
-    os.chdir(all_images_directory)
-    results = []
-    for subdir, dirs, files in os.walk(all_images_directory):
+    os.chdir(current_participant_images)
+    root = "."
+    current_participant = []
+    # get all of the image file names of current participant.
+    for subdir0, dirs0, files0 in os.walk(root):
+        for file0 in files0:
+            # Append the current image to the list of images.
+            current_participant = get_image(file0)
+    print("current participant image: " + str(current_participant))
+    known_encoding = face_recognition.face_encodings(current_participant)
+
+    # Now get all of the image file names of previous participants.
+    # go back one directory.
+    os.chdir('..')
+    previous_participants = []
+    for subdir, dirs, files in os.walk(root):
         for directory in dirs:
-            # this makes sure that we don't go into the directory of the current participant.
-            if directory != name:
+            if name != directory:
                 for file in files:
-                    known_image = face_recognition.load_image_file(file)
-                    for subdir1, dirs1, files1 in os.walk(current_participant_images):
-                        for file1 in files1:
-                            unknown_image = face_recognition.load_image_file(file1)
+                    # Append the current image to the list of images.
+                    previous_participants = get_image(file)
 
-                            known_participant_encoding = face_recognition.face_encodings(known_image)[0]
-                            unknown_participant_encoding = face_recognition.face_encodings(unknown_image)[0]
+    # Perform face encodings on these images.
+    unknown_encoding = face_recognition.face_encodings(previous_participants)
 
-                            results.append(face_recognition.compare_faces([known_participant_encoding],
-                                                                          unknown_participant_encoding))
+    # compare the current participant to previous participants.
+    results = face_recognition.compare_faces(known_encoding, unknown_encoding)
+
+    print("Are these two images the same person: " + str(results))
 
     return results
 
@@ -120,12 +143,36 @@ def recognize_known_faces():
 def main():
     """Main method that runs our code."""
 
+    # Define our faceCascade.
+    faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+    # Number of frames we're collecting
+    numberFrames = 30
+    # Tell the computer which camera to use.
+    camera = cv2.VideoCapture(0)
+    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    camera.set(cv2.CAP_PROP_XI_FRAMERATE, 30)
+    number_of_frames = camera.get(numberFrames)
+
+    # This is the number of frames that we will be taking, as a list.
+    frames_OI = list(range(0, numberFrames + 1))
+
+    # Collect subjects name and update directory with a new file, or check if file already exists.
+    name = input("What's his/her Name? ")
+    pathDir = "./images/" + name
+    if not os.path.exists(pathDir):
+        os.makedirs(pathDir)
+        print("Directory Created")
+    else:
+        print("Name already exists")
+        sys.exit()
+
     # Collect this participants face.
-    collect_face_images()
+    collect_face_images(faceCascade, frames_OI, camera, name, pathDir)
 
     # Determine whether or not this this person has been "seen" by the camera before.
-    results = recognize_known_faces()
-    print(results)
+    results = recognize_known_faces(name)
+    print("These are the final results: " + str(results))
 
 
 # Entry point into our code.
