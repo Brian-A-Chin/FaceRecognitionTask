@@ -77,9 +77,16 @@ def put_images_into_list(name):
     # Now get all of the image file names of previous participants.
     # go back one directory.
     os.chdir('..')
-    previous_participants = []
+    directories = []
     for subdir, dirs, files in os.walk(root):
-        for file in files:
+        directories.append(dirs)
+    previous_participants = []
+    original_directory = os.getcwd()
+    for directory in directories[0]:
+        os.chdir(original_directory + "/" + directory)
+        all_files = os.listdir()
+        os.chdir(original_directory)
+        for file in all_files:
             if file.split("_")[0] != name:
                 # Append the current image to the list of images.
                 previous_participants.append(get_image(file))
@@ -109,9 +116,9 @@ def recognize_known_faces(name):
             true_counter += 1
 
     if true_counter >= 1:
-        print("This person was seen before this many times: " + str(true_counter/3))
+        print("This person was seen before this many times: " + str(true_counter/9))
     else:
-        print("This person has not been seen before: " + str(true_counter/3))
+        print("This person has not been seen before: " + str(true_counter))
 
 
 def main():
