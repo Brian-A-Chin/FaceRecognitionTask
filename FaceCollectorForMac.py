@@ -1,10 +1,9 @@
 """
 Author: Kyle Mabry
 This script will collect 30 images of a person's face.
-The script is also capable of identifying the face in question and cropping the image to be a box that
-includes only the face.
+The script is also capable of identifying the face in question.
 This script is meant to be run on a mac where the camera is built in.
-Last edit made: 8/23/2020 KJM
+Last edit made: 8/29/2020 KJM
 """
 
 import cv2
@@ -15,8 +14,7 @@ from tqdm import tqdm
 
 
 def collect_face_images(faceCascade, frames_OI, camera, name, pathDir):
-    """This function will collect 30 images of a person's face. The function will also
-    crop the image to be a box that includes only the face."""
+    """This function will collect 30 images of a person's face in RGB format."""
 
     # This is where the camera actually records images and saves them.
     numberOfImagesCreated = 0
@@ -30,7 +28,6 @@ def collect_face_images(faceCascade, frames_OI, camera, name, pathDir):
         file_name = (pathDir + "/" + name + "_" + str(i) + ".jpg")
         # Save the face-only image.
         saved = cv2.imwrite(file_name, frame)
-        print("Did the image save? " + str(saved))  # DEBUG
 
     # Print to the user how many images were generated.
     print(str(numberOfImagesCreated) + " photos were generated.")
@@ -52,7 +49,7 @@ def get_image(file_name_only):
         for file in files:
             # if we've found our file.
             if file == file_name_only:
-                # if the current directory isn't where the file is located change it.
+                # if the current directory isn't where the file is located, change it.
                 if os.getcwd().split("/")[-1] != directory:
                     os.chdir(os.getcwd() + "/" + directory)
                     # get the whole path. load the image.
@@ -65,8 +62,7 @@ def get_image(file_name_only):
 
 
 def put_images_into_list(name):
-    """From the faces that we've collected so far, this function will determine whether or not it has seen this
-    person's face before."""
+    """From the faces that we've collected so far this function will place the image objects into a list."""
 
     current_participant_images = "./images/" + name
     os.chdir(current_participant_images)
@@ -109,13 +105,13 @@ def recognize_known_faces(name):
 
     true_counter = 0
     for result in final_results:
-        if result:
+        if str(result[0]) == "True":
             true_counter += 1
 
-    if true_counter >= 10:
-        print("This person was seen before this many times: " + str(true_counter))
+    if true_counter >= 1:
+        print("This person was seen before this many times: " + str(true_counter/3))
     else:
-        print("This person has not been seen before: " + str(true_counter))
+        print("This person has not been seen before: " + str(true_counter/3))
 
 
 def main():
@@ -123,8 +119,8 @@ def main():
 
     # Define our faceCascade.
     faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-    # Number of frames we're collecting
-    numberFrames = 30
+    # Number of frames we're collecting (add one to the number). 
+    numberFrames = 2
     # Tell the computer which camera to use.
     camera = cv2.VideoCapture(0)
     camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
