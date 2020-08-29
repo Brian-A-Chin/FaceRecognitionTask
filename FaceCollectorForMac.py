@@ -27,7 +27,7 @@ def collect_face_images(faceCascade, frames_OI, camera, name, pathDir):
 
         file_name = (pathDir + "/" + name + "_" + str(i) + ".jpg")
         # Save the face-only image.
-        saved = cv2.imwrite(file_name, frame)
+        cv2.imwrite(file_name, frame)
 
     # Print to the user how many images were generated.
     print(str(numberOfImagesCreated) + " photos were generated.")
