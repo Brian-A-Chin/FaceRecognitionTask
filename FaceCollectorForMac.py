@@ -11,6 +11,7 @@ import cv2
 import os
 import sys
 import face_recognition
+from tqdm import tqdm
 
 
 def collect_face_images(faceCascade, frames_OI, camera, name, pathDir):
@@ -23,38 +24,13 @@ def collect_face_images(faceCascade, frames_OI, camera, name, pathDir):
         currentFrame = i
         camera.set(1, currentFrame)
         ret, frame = camera.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         # The code will now collect 30 images.
         numberOfImagesCreated = i
 
-        # Detect faces in the image using faceCascade.
-        faces = faceCascade.detectMultiScale(
-            gray,
-            scaleFactor=1.2,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
-
-        # update the user with how many faces were detected.
-        print("Found {0} faces!".format(len(faces)))
-
-        # Draw a rectangle around the faces
-        # print(faces)
-
-        for (x, y, w, h) in faces:
-            cv2.rectangle(gray, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            # Reposition, for some reason the x,y coordinates weren't correct.
-            x0 = x - w
-            y0 = y + h
-            x1 = x0 + w
-            y1 = y0 + h
-            # Crop the image, taking only the face.
-            cropped = gray[x0:x1, y0:y1]
-            file_name = (pathDir + "/" + name + str(i) + "_(" + str(x0) + "," + str(y0) + ").jpg")
-            # Save the face-only image.
-            saved = cv2.imwrite(file_name, cropped)
-            print("Did the image save? " + str(saved))  # DEBUG
+        file_name = (pathDir + "/" + name + "_" + str(i) + ".jpg")
+        # Save the face-only image.
+        saved = cv2.imwrite(file_name, frame)
+        print("Did the image save? " + str(saved))  # DEBUG
 
     # Print to the user how many images were generated.
     print(str(numberOfImagesCreated) + " photos were generated.")
@@ -70,38 +46,25 @@ def get_image(file_name_only):
 
     root = "."
     participant_image = ""
+    # get the directory that we need to be in.
+    directory = file_name_only.split("_")[0]
     for subdir, dirs, files in os.walk(root):
-        if dirs:
-            for directory in dirs:
-                for file in files:
-                    print(file)
-                    # if we've found our file.
-                    if file == file_name_only:
-                        cur_dir = os.getcwd() + "/" + directory
-                        os.chdir(cur_dir)
-                        # get the whole path.
-                        print(os.curdir)
-                        # load the image.
-                        print("Filename:" + file)
-                        participant_image = face_recognition.load_image_file(file)
-        else:
-            for file in files:
-                print(file)
-                # if we've found our file.
-                if file == file_name_only:
-                    cur_dir = os.getcwd()
-                    os.chdir(cur_dir)
-                    # get the whole path.
-                    print(os.curdir)
-                    # load the image.
-                    print("Filename:" + file)
+        for file in files:
+            # if we've found our file.
+            if file == file_name_only:
+                # if the current directory isn't where the file is located change it.
+                if os.getcwd().split("/")[-1] != directory:
+                    os.chdir(os.getcwd() + "/" + directory)
+                    # get the whole path. load the image.
+                    participant_image = face_recognition.load_image_file(file)
+                else:
                     participant_image = face_recognition.load_image_file(file)
 
     # return the image.
     return participant_image
 
 
-def recognize_known_faces(name):
+def put_images_into_list(name):
     """From the faces that we've collected so far, this function will determine whether or not it has seen this
     person's face before."""
 
@@ -112,31 +75,47 @@ def recognize_known_faces(name):
     # get all of the image file names of current participant.
     for subdir0, dirs0, files0 in os.walk(root):
         for file0 in files0:
-            print(file0)
             # Append the current image to the list of images.
-            current_participant = get_image(file0)
+            current_participant.append(get_image(file0))
 
-    known_encoding = face_recognition.face_encodings(current_participant)[0]
     # Now get all of the image file names of previous participants.
     # go back one directory.
     os.chdir('..')
     previous_participants = []
     for subdir, dirs, files in os.walk(root):
-        for directory in dirs:
-            if name != directory:
-                for file in files:
-                    # Append the current image to the list of images.
-                    previous_participants = get_image(file)
+        for file in files:
+            if file.split("_")[0] != name:
+                # Append the current image to the list of images.
+                previous_participants.append(get_image(file))
 
-    # Perform face encodings on these images.
-    unknown_encoding = face_recognition.face_encodings(previous_participants)[0]
+    return previous_participants, current_participant
 
-    # compare the current participant to previous participants.
-    results = face_recognition.compare_faces(known_encoding, unknown_encoding)
 
-    print("Are these two images the same person: " + str(results))
+def recognize_known_faces(name):
+    """Does the actual recognition of faces for each image in the list, if any 10 images match then we will return
+    true that this is the same person."""
 
-    return results
+    # get the lists of both unknown and known images.
+    previous_participants, current_participant = put_images_into_list(name)
+
+    # Create a final results list:
+    final_results = []
+    # for each image in the list of images for previous and current participants.
+    for unknown_person in tqdm(current_participant):
+        unknown_encoding = face_recognition.face_encodings(unknown_person)[0]
+        for known_person in previous_participants:
+            known_encoding = face_recognition.face_encodings(known_person)[0]
+            final_results.append(face_recognition.compare_faces([known_encoding], unknown_encoding))
+
+    true_counter = 0
+    for result in final_results:
+        if result:
+            true_counter += 1
+
+    if true_counter >= 10:
+        print("This person was seen before this many times: " + str(true_counter))
+    else:
+        print("This person has not been seen before: " + str(true_counter))
 
 
 def main():
@@ -170,8 +149,7 @@ def main():
     collect_face_images(faceCascade, frames_OI, camera, name, pathDir)
 
     # Determine whether or not this this person has been "seen" by the camera before.
-    results = recognize_known_faces(name)
-    print("These are the final results: " + str(results))
+    recognize_known_faces(name)
 
 
 # Entry point into our code.

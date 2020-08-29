@@ -8,9 +8,9 @@ known_face_encoding = face_recognition.face_encodings(known_image)[0]
 unknown_face_encoding = face_recognition.face_encodings(unknown_image)[0]
 unknown_face_encoding1 = face_recognition.face_encodings(unknown_image1)[0]
 
-unknown_images = [unknown_face_encoding, unknown_face_encoding1]
+known_images = [unknown_face_encoding, unknown_face_encoding1]
 
-results = face_recognition.compare_faces(unknown_images, known_image)
+results = face_recognition.compare_faces(known_images, known_face_encoding)
 
 print("Results: " + str(results))
 
