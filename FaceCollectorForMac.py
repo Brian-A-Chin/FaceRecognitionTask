@@ -116,7 +116,7 @@ def recognize_known_faces(name):
             # Append the current image to the list of images.
             current_participant = get_image(file0)
 
-    known_encoding = face_recognition.face_encodings(current_participant)
+    known_encoding = face_recognition.face_encodings(current_participant)[0]
     # Now get all of the image file names of previous participants.
     # go back one directory.
     os.chdir('..')
@@ -129,7 +129,7 @@ def recognize_known_faces(name):
                     previous_participants = get_image(file)
 
     # Perform face encodings on these images.
-    unknown_encoding = face_recognition.face_encodings(previous_participants)
+    unknown_encoding = face_recognition.face_encodings(previous_participants)[0]
 
     # compare the current participant to previous participants.
     results = face_recognition.compare_faces(known_encoding, unknown_encoding)
